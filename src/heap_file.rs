@@ -45,7 +45,7 @@ impl HeapFile {
     }
 
     // Writes the specified page to disk
-    pub fn write_page(&self, page: HeapPage) {
+    pub fn write_page(&self, page: &HeapPage) {
         let pid = page.get_id();
         let data = page.get_page_data();
         let mut file = self.file.lock().unwrap();
@@ -70,9 +70,10 @@ impl HeapFile {
             let pid = HeapPageId::new(table_id, i);
             let page = bp.get_page(pid).unwrap();
             let mut page_writer = page.write().unwrap();
-            // let mut page = bp.get_page(pid).unwrap().write().unwrap();
             if page_writer.get_num_empty_slots() > 0 {
                 page_writer.add_tuple(tuple);
+                // TODO: only write to when page is evicted from buffer pool
+                self.write_page(&*page_writer);
                 return;
             }
         }
@@ -80,7 +81,7 @@ impl HeapFile {
         let pid = HeapPageId::new(table_id, num_pages);
         let mut page = HeapPage::new(pid, vec![0; PAGE_SIZE], self.td.clone());
         page.add_tuple(tuple);
-        self.write_page(page);
+        self.write_page(&page);
     }
 
     // Deletes the specified tuple from the file

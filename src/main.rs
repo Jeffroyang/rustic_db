@@ -11,14 +11,17 @@ mod types;
 fn main() {
     let db = database::get_global_db();
 
-    // 1. Creates a table called employee with two columns: id (int) and name (string)
-    db.get_catalog().load_schema();
+    // 1. Load the schemas and tables from the schemas.txt file
+    let mut schema_file_path = std::env::current_dir().unwrap();
+    schema_file_path.push("schemas.txt");
+    db.get_catalog()
+        .load_schema(schema_file_path.to_str().unwrap());
 
     // 2. Retrieve the list of catalogs
     let catalog = db.get_catalog();
 
     // 3. Retrieve the table id for the employee table
-    let table = catalog.get_table_from_name("employee").unwrap();
+    let table = catalog.get_table_from_name("employees").unwrap();
     let table_id = table.get_id();
 
     // 4. Retrieve the tuple descriptor for the employee table
