@@ -24,7 +24,7 @@ impl RecordId {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct TupleDesc {
     types: Vec<Type>,
     fields: Vec<String>,
@@ -70,7 +70,7 @@ impl TupleDesc {
 }
 
 // Describe the schema of a tuple/table
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Tuple {
     // Define Tuple properties
     fields: Vec<FieldVal>,

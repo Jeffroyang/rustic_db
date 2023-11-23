@@ -2,21 +2,25 @@ use crate::fields::{FieldVal, IntField, StringField};
 
 pub const STRING_SIZE: usize = 256;
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+// Only support Int and String types
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Type {
-    // Define FieldType variants
     IntType,
     StringType,
 }
 
 impl Type {
+    // Get the size of the type in bytes
     pub fn get_len(&self) -> usize {
         match self {
+            // 4 bytes ints
             Type::IntType => 4,
+            // 4 bytes for length + STRING_SIZE bytes for string
             Type::StringType => STRING_SIZE + 4,
         }
     }
 
+    // Parse bytes into a FieldVal
     pub fn parse(&self, bytes: &[u8]) -> Result<FieldVal, String> {
         match self {
             Type::IntType => {
@@ -27,9 +31,10 @@ impl Type {
                 ))))
             }
             Type::StringType => {
-                let len = bytes[0] as usize;
-                let mut string_bytes = [0; STRING_SIZE];
-                string_bytes.copy_from_slice(&bytes[1..=len]);
+                let mut len_bytes = [0; 4];
+                len_bytes.copy_from_slice(&bytes[..4]);
+                let len = u32::from_be_bytes(len_bytes);
+                let string_bytes = bytes[4..len as usize + 4].to_vec();
                 Ok(FieldVal::StringField(StringField::new(
                     String::from_utf8(string_bytes.to_vec()).unwrap(),
                     len,

@@ -3,7 +3,7 @@ use crate::database;
 use crate::tuple::{Tuple, TupleDesc};
 
 /// Representation of page id which just includes table id and page number
-#[derive(Debug, PartialEq, Clone, Hash, Eq, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Copy)]
 pub struct HeapPageId {
     table_id: usize,
     page_number: usize,
@@ -36,6 +36,7 @@ impl HeapPageId {
  * whether or not a tuple is present in that slot on the page.
  * The number of bytes for header is equal to ceiling(# tuple slots / 8)
  */
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct HeapPage {
     pid: HeapPageId,
     td: TupleDesc,
@@ -47,12 +48,7 @@ pub struct HeapPage {
 }
 
 impl HeapPage {
-    pub fn new(pid: HeapPageId, data: Vec<u8>) -> Self {
-        let td = database::get_global_db()
-            .get_catalog()
-            .get_tuple_desc(pid.table_id)
-            .unwrap()
-            .clone();
+    pub fn new(pid: HeapPageId, data: Vec<u8>, td: TupleDesc) -> Self {
         let num_slots = (PAGE_SIZE * 8) / (td.get_size() * 8 + 1);
         let old_data = vec![0; PAGE_SIZE];
 
@@ -88,7 +84,7 @@ impl HeapPage {
     }
 
     pub fn get_before_image(&self) -> HeapPage {
-        HeapPage::new(self.pid, self.old_data.clone())
+        HeapPage::new(self.pid, self.old_data.clone(), self.td.clone())
     }
 
     pub fn set_before_image(&mut self) {
@@ -170,7 +166,7 @@ impl HeapPage {
         count
     }
 
-    pub fn iter_mut(&mut self) -> HeapPageIterator {
+    pub fn iter(&self) -> HeapPageIterator {
         HeapPageIterator {
             page: self,
             index: 0,
