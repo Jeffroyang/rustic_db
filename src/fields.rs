@@ -80,3 +80,26 @@ impl Field for StringField {
         bytes
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_int_field() {
+        let int_field = IntField::new(1);
+        assert_eq!(int_field.get_type(), Type::IntType);
+        assert_eq!(int_field.serialize(), vec![0, 0, 0, 1]);
+    }
+
+    #[test]
+    fn test_string_field() {
+        let string_field = StringField::new("hello".to_string(), 5);
+        assert_eq!(string_field.get_type(), Type::StringType);
+        let mut serialized = [0; STRING_SIZE + 4];
+        serialized[3] = 5;
+        serialized[4..9].copy_from_slice("hello".as_bytes());
+
+        assert_eq!(string_field.serialize(), serialized);
+    }
+}
