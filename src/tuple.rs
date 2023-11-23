@@ -1,4 +1,4 @@
-use crate::fields::{Field, FieldVal};
+use crate::fields::{Field, FieldVal, IntField, StringField};
 use crate::heap_page::HeapPageId;
 use crate::types::Type;
 
@@ -127,5 +127,57 @@ impl Tuple {
             fields.push(field);
         }
         Tuple::new(fields, td)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::fields::IntField;
+    use crate::types::Type;
+
+    #[test]
+    fn test_tuple_desc_combine() {
+        let td1 = TupleDesc::new(
+            vec![Type::IntType, Type::StringType],
+            vec!["int".to_string(), "string".to_string()],
+        );
+        let td2 = TupleDesc::new(
+            vec![Type::IntType, Type::StringType],
+            vec!["int".to_string(), "string".to_string()],
+        );
+        let td3 = TupleDesc::combine(&td1, &td2);
+        assert_eq!(td3.get_num_fields(), 4);
+        assert_eq!(td3.get_field_name(0), Some(&"int".to_string()));
+        assert_eq!(td3.get_field_name(1), Some(&"string".to_string()));
+        assert_eq!(td3.get_field_name(2), Some(&"int".to_string()));
+        assert_eq!(td3.get_field_name(3), Some(&"string".to_string()));
+    }
+
+    #[test]
+    fn test_tuple_desc_len() {
+        let td = TupleDesc::new(
+            vec![Type::IntType, Type::StringType],
+            vec!["int".to_string(), "string".to_string()],
+        );
+        assert_eq!(td.get_size(), 264);
+    }
+
+    #[test]
+    fn test_tuple_serialize_deserialize() {
+        let td = TupleDesc::new(
+            vec![Type::IntType, Type::StringType],
+            vec!["int".to_string(), "string".to_string()],
+        );
+        let tuple = Tuple::new(
+            vec![
+                FieldVal::IntField(IntField::new(1)),
+                FieldVal::StringField(StringField::new("hello".to_string(), 5)),
+            ],
+            &td,
+        );
+        let bytes = tuple.serialize();
+        let tuple2 = Tuple::deserialize(&bytes, &td);
+        assert_eq!(tuple, tuple2);
     }
 }
