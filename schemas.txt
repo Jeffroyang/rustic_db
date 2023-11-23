@@ -1,3 +1,2 @@
-managers (id: Int, name: String)
 employees (id: Int, name: String)
-manages (employee_id: Int, manager_id: Int)
+manages (manager_id: Int, employee_id: Int)
