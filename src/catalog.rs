@@ -68,9 +68,7 @@ impl Catalog {
 
     // Loads the schema from a text file
     pub fn load_schema(&self, schema_file_path: &str) {
-        print!("{:?}\n", schema_file_path);
         let schema_file = File::open(schema_file_path).unwrap();
-        print!("file opened\n");
         let reader = BufReader::new(schema_file);
         for line in reader.lines() {
             let line = line.unwrap();

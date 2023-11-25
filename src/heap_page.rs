@@ -100,6 +100,8 @@ impl HeapPage {
                 data.extend(vec![0; self.td.get_size()]);
             }
         }
+        // pad the rest of the page with 0s
+        data.extend(vec![0; PAGE_SIZE - data.len()]);
         data
     }
 

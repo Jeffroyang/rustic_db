@@ -30,28 +30,21 @@ fn main() {
     print!("table id: {}\n", table_id);
     print!("table name: {:?}\n", td.get_field_name(0));
 
-    // 5. Insert two tuples into the employee table
+    // 5. Insert 1000 tuples into the employee table
     let bp = db.get_buffer_pool();
-    bp.insert_tuple(
-        table_id,
-        tuple::Tuple::new(
-            vec![
-                fields::FieldVal::IntField(fields::IntField::new(1)),
-                fields::FieldVal::StringField(fields::StringField::new("Alice".to_string(), 5)),
-            ],
-            &td,
-        ),
-    );
-    bp.insert_tuple(
-        table_id,
-        tuple::Tuple::new(
-            vec![
-                fields::FieldVal::IntField(fields::IntField::new(2)),
-                fields::FieldVal::StringField(fields::StringField::new("Bob".to_string(), 3)),
-            ],
-            &td,
-        ),
-    );
+    for i in 0..1000 {
+        bp.insert_tuple(
+            table_id,
+            tuple::Tuple::new(
+                vec![
+                    fields::FieldVal::IntField(fields::IntField::new(i)),
+                    // insert random string
+                    fields::FieldVal::StringField(fields::StringField::new("Alice".to_string(), 5)),
+                ],
+                &td,
+            ),
+        );
+    }
 
     // 6. Print out the tuples in the employee table
     let table = catalog.get_table_from_id(table_id).unwrap();
@@ -60,4 +53,6 @@ fn main() {
             print!("tuple: {:?}\n", tuple);
         }
     }
+    let pid = heap_page::HeapPageId::new(table_id, 0);
+    bp.get_page(pid);
 }

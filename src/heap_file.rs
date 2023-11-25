@@ -57,7 +57,7 @@ impl HeapFile {
     // Calculates the number of pages in this HeapFile
     pub fn num_pages(&self) -> usize {
         let file = self.file.lock().unwrap();
-        (file.metadata().unwrap().len() as f64 / (PAGE_SIZE * 8) as f64).ceil() as usize
+        (file.metadata().unwrap().len() as f64 / PAGE_SIZE as f64).ceil() as usize
     }
 
     // Adds the specified tuple to the file
