@@ -4,6 +4,7 @@ mod database;
 mod fields;
 mod heap_file;
 mod heap_page;
+mod lock_manager;
 mod transaction;
 mod tuple;
 mod types;
@@ -31,9 +32,11 @@ fn main() {
     print!("table name: {:?}\n", td.get_field_name(0));
 
     // 5. Insert 1000 tuples into the employee table
+    let tid = transaction::TransactionId::new();
     let bp = db.get_buffer_pool();
     for i in 0..1000 {
         bp.insert_tuple(
+            tid,
             table_id,
             tuple::Tuple::new(
                 vec![
@@ -48,11 +51,9 @@ fn main() {
 
     // 6. Print out the tuples in the employee table
     let table = catalog.get_table_from_id(table_id).unwrap();
-    for page in table.iter() {
+    for page in table.iter(tid) {
         for tuple in page.iter() {
             print!("tuple: {:?}\n", tuple);
         }
     }
-    let pid = heap_page::HeapPageId::new(table_id, 0);
-    bp.get_page(pid);
 }

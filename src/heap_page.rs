@@ -2,6 +2,12 @@ use crate::buffer_pool::PAGE_SIZE;
 use crate::database;
 use crate::tuple::{Tuple, TupleDesc};
 
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Copy)]
+pub enum Permission {
+    Read,
+    Write,
+}
+
 /// Representation of page id which just includes table id and page number
 #[derive(Debug, PartialEq, Eq, Clone, Hash, Copy)]
 pub struct HeapPageId {

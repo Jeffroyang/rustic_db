@@ -1,6 +1,7 @@
 use crate::buffer_pool::PAGE_SIZE;
 use crate::database;
-use crate::heap_page::{HeapPage, HeapPageId};
+use crate::heap_page::{HeapPage, HeapPageId, Permission};
+use crate::transaction::TransactionId;
 use crate::tuple::{Tuple, TupleDesc};
 
 use std::fs::File;
@@ -61,14 +62,14 @@ impl HeapFile {
     }
 
     // Adds the specified tuple to the file
-    pub fn add_tuple(&self, tuple: Tuple) {
+    pub fn add_tuple(&self, tid: TransactionId, tuple: Tuple) {
         let num_pages = self.num_pages();
         let table_id = self.get_id();
         let db = database::get_global_db();
         let bp = db.get_buffer_pool();
         for i in 0..num_pages {
             let pid = HeapPageId::new(table_id, i);
-            let page = bp.get_page(pid).unwrap();
+            let page = bp.get_page(tid, pid, Permission::Write).unwrap();
             let mut page_writer = page.write().unwrap();
             if page_writer.get_num_empty_slots() > 0 {
                 page_writer.add_tuple(tuple);
@@ -85,21 +86,22 @@ impl HeapFile {
     }
 
     // Deletes the specified tuple from the file
-    pub fn delete_tuple(&self, tuple: Tuple) {
+    pub fn delete_tuple(&self, tid: TransactionId, tuple: Tuple) {
         let db = database::get_global_db();
         let bp = db.get_buffer_pool();
         let rid = tuple.get_record_id();
         let pid = rid.get_page_id();
-        let page = bp.get_page(pid).unwrap();
+        let page = bp.get_page(tid, pid, Permission::Write).unwrap();
         let mut page_writer = page.write().unwrap();
         page_writer.delete_tuple(tuple);
     }
 
     // Retrieves an iterator over the pages in this file
-    pub fn iter(&self) -> HeapFileIterator {
+    pub fn iter(&self, tid: TransactionId) -> HeapFileIterator {
         HeapFileIterator {
             heap_file: self,
             current_page_index: 0,
+            tid,
         }
     }
 }
@@ -107,6 +109,7 @@ impl HeapFile {
 pub struct HeapFileIterator<'a> {
     heap_file: &'a HeapFile,
     current_page_index: usize,
+    tid: TransactionId,
 }
 
 impl<'a> Iterator for HeapFileIterator<'a> {
@@ -117,7 +120,7 @@ impl<'a> Iterator for HeapFileIterator<'a> {
             let pid = HeapPageId::new(self.heap_file.get_id(), self.current_page_index);
             let db = database::get_global_db();
             let bp = db.get_buffer_pool();
-            let page = bp.get_page(pid).unwrap();
+            let page = bp.get_page(self.tid, pid, Permission::Write).unwrap();
             let page = page.read().unwrap();
             self.current_page_index += 1;
             Some(page.clone())
