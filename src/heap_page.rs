@@ -1,5 +1,6 @@
 use crate::buffer_pool::PAGE_SIZE;
 use crate::database;
+use crate::transaction::TransactionId;
 use crate::tuple::{Tuple, TupleDesc};
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash, Copy)]
@@ -51,6 +52,7 @@ pub struct HeapPage {
     tuples: Vec<Tuple>,
     num_slots: usize,
     old_data: Vec<u8>,
+    dirtiedBy: Option<TransactionId>,
 }
 
 impl HeapPage {
@@ -82,6 +84,7 @@ impl HeapPage {
             tuples,
             num_slots,
             old_data,
+            dirtiedBy: None,
         }
     }
 
@@ -172,6 +175,14 @@ impl HeapPage {
             }
         }
         count
+    }
+
+    pub fn mark_dirty(&mut self, dirty: bool, tid: TransactionId) {
+        if dirty {
+            self.dirtiedBy = Some(tid);
+        } else {
+            self.dirtiedBy = None;
+        }
     }
 
     pub fn iter(&self) -> HeapPageIterator {
