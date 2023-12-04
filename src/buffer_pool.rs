@@ -13,7 +13,7 @@ pub const DEFAULT_PAGES: usize = 50;
 // Cache of pages kept in memory
 pub struct BufferPool {
     id_to_page: RwLock<HashMap<HeapPageId, Arc<RwLock<HeapPage>>>>,
-    lock_manager: RwLock<LockManager>,
+    lock_manager: LockManager,
     num_pages: usize,
 }
 
@@ -22,7 +22,7 @@ impl BufferPool {
         BufferPool {
             id_to_page: RwLock::new(HashMap::new()),
             num_pages: DEFAULT_PAGES,
-            lock_manager: RwLock::new(LockManager::new()),
+            lock_manager: LockManager::new(),
         }
     }
 
@@ -33,6 +33,9 @@ impl BufferPool {
         pid: HeapPageId,
         perm: Permission,
     ) -> Option<Arc<RwLock<HeapPage>>> {
+        let exclusive = perm == Permission::Write;
+        self.lock_manager.acquire_lock(tid, pid, exclusive);
+
         {
             let id_to_page = self.id_to_page.read().unwrap();
             if id_to_page.contains_key(&pid) {
@@ -43,30 +46,49 @@ impl BufferPool {
         let db = database::get_global_db();
         let catalog = db.get_catalog();
         let table = catalog.get_table_from_id(pid.get_table_id()).unwrap();
-        let page = table.read_page(pid.clone());
+        let page = table.read_page(&pid);
         let mut id_to_page = self.id_to_page.write().unwrap();
         id_to_page.insert(pid.clone(), Arc::new(RwLock::new(page)));
         Some(Arc::clone(id_to_page.get(&pid).unwrap()))
     }
 
-    // Releases all locks associated with the specified transaction
-    pub fn release_locks(&self, tid: TransactionId) {
-        // TODO: Implement Me!
-        print!("Locks released for {:?}\n", tid);
-        return;
+    // Commits the specified transaction, writes all dirty pages to disk, and releases all locks
+    pub fn commit_transaction(&self, tid: TransactionId) {
+        let locked_pages = self.lock_manager.get_locked_pages(tid);
+        for pid in locked_pages {
+            if self.id_to_page.read().unwrap().contains_key(&pid) {
+                let id_to_page = self.id_to_page.read().unwrap();
+                let page = id_to_page.get(&pid).unwrap();
+                let mut page = page.write().unwrap();
+                if page.is_dirty() {
+                    let db = database::get_global_db();
+                    let catalog = db.get_catalog();
+                    let table = catalog.get_table_from_id(pid.get_table_id()).unwrap();
+                    table.write_page(&page);
+                    page.mark_dirty(false, tid);
+                    page.set_before_image();
+                }
+            }
+        }
+        self.lock_manager.release_locks(tid);
     }
 
-    // checks if the specified transaction has a lock on the specified page
-    pub fn holds_lock(&self, tid: TransactionId, pid: HeapPageId) -> bool {
-        // TODO: Implement Me!
-        print!("Locks held for {:?}\n", tid);
-        return false;
-    }
-
-    // Commits or aborts the specified transaction
-    pub fn transaction_complete(&self, tid: TransactionId, commit: bool) {
-        // TODO: Implement Me!
-        print!("Transaction complete for {:?}\n", tid);
+    // Aborts the specified transaction, reverting any changes made, and releases all locks
+    pub fn abort_transaction(&self, tid: TransactionId) {
+        let locked_pages = self.lock_manager.get_locked_pages(tid);
+        for pid in locked_pages {
+            if self.id_to_page.read().unwrap().contains_key(&pid) {
+                let id_to_page = self.id_to_page.read().unwrap();
+                let page = id_to_page.get(&pid).unwrap();
+                let mut page = page.write().unwrap();
+                if page.is_dirty() {
+                    // revert the page to its original state
+                    *page = page.get_before_image();
+                    page.mark_dirty(false, tid)
+                }
+            }
+        }
+        self.lock_manager.release_locks(tid);
     }
 
     // Adds the tuple to the specified table
@@ -77,7 +99,7 @@ impl BufferPool {
         table.add_tuple(tid, tuple);
     }
 
-    // Deletes the tuple from the specified table
+    // TODO: Deletes the tuple from the specified table
     pub fn delete_tuple(&mut self, tid: TransactionId, table_id: usize, tuple: Tuple) {
         let db = database::get_global_db();
         let catalog = db.get_catalog();

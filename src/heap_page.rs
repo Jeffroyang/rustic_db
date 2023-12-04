@@ -1,5 +1,4 @@
 use crate::buffer_pool::PAGE_SIZE;
-use crate::database;
 use crate::transaction::TransactionId;
 use crate::tuple::{Tuple, TupleDesc};
 
@@ -52,7 +51,7 @@ pub struct HeapPage {
     tuples: Vec<Tuple>,
     num_slots: usize,
     old_data: Vec<u8>,
-    dirtiedBy: Option<TransactionId>,
+    dirtied_by: Option<TransactionId>,
 }
 
 impl HeapPage {
@@ -84,7 +83,7 @@ impl HeapPage {
             tuples,
             num_slots,
             old_data,
-            dirtiedBy: None,
+            dirtied_by: None,
         }
     }
 
@@ -141,30 +140,32 @@ impl HeapPage {
         vec![0; PAGE_SIZE]
     }
 
-    pub fn add_tuple(&mut self, t: Tuple) {
+    pub fn add_tuple(&mut self, t: Tuple) -> Result<(), String> {
         let mut i = 0;
         while i < self.num_slots {
             if !Self::get_slot(&self.header, i) {
                 self.tuples[i] = t;
                 Self::set_slot(&mut self.header, i, true);
-                return;
+                return Ok(());
             }
             i += 1;
         }
+        Err("No empty slots".to_string())
     }
 
-    pub fn delete_tuple(&mut self, t: Tuple) {
+    pub fn delete_tuple(&mut self, t: Tuple) -> Result<(), String> {
         let rid = t.get_record_id();
         let tuple_no = rid.get_tuple_no();
         if rid.get_page_id() != self.pid {
-            panic!("Tuple not on this page");
+            return Err("Tuple not on this page".to_string());
         }
         if !Self::get_slot(&self.header, tuple_no) {
-            panic!("Tuple not on this page");
+            return Err("Tuple not on this page".to_string());
         }
 
         self.tuples[tuple_no] = Tuple::new(vec![], &self.td);
         Self::set_slot(&mut self.header, tuple_no, false);
+        Ok(())
     }
 
     pub fn get_num_empty_slots(&self) -> usize {
@@ -179,10 +180,14 @@ impl HeapPage {
 
     pub fn mark_dirty(&mut self, dirty: bool, tid: TransactionId) {
         if dirty {
-            self.dirtiedBy = Some(tid);
+            self.dirtied_by = Some(tid);
         } else {
-            self.dirtiedBy = None;
+            self.dirtied_by = None;
         }
+    }
+
+    pub fn is_dirty(&self) -> bool {
+        self.dirtied_by.is_some()
     }
 
     pub fn iter(&self) -> HeapPageIterator {
