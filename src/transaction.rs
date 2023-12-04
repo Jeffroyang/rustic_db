@@ -2,20 +2,17 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct TransactionId {
-    // Define TransactionId properties
     tid: u64,
 }
 
 impl TransactionId {
     pub fn new() -> Self {
-        // Initialize TransactionId
         static COUNTER: AtomicU64 = AtomicU64::new(0);
         let tid = COUNTER.fetch_add(1, Ordering::SeqCst);
         TransactionId { tid }
     }
 
     pub fn get_tid(&self) -> u64 {
-        // Return TransactionId
         self.tid
     }
 }

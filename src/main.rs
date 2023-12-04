@@ -38,36 +38,42 @@ fn main() {
             let db = database::get_global_db();
             let table = db.get_catalog().get_table_from_id(table_id).unwrap();
             let td = table.get_tuple_desc().clone();
-            thread::spawn(move || {
-                let tid = transaction::TransactionId::new();
-                let bp = db.get_buffer_pool();
-                let name = format!("Alice_{}", tid.get_tid());
-                for i in 0..3 {
-                    bp.insert_tuple(
-                        tid,
-                        table_id,
-                        tuple::Tuple::new(
-                            vec![
-                                fields::FieldVal::IntField(fields::IntField::new(i)),
-                                fields::FieldVal::StringField(fields::StringField::new(
-                                    name.clone(),
-                                    7,
-                                )),
-                            ],
-                            &td,
-                        ),
-                    );
+            thread::spawn(move || loop {
+                let res = std::panic::catch_unwind(|| {
+                    let tid = transaction::TransactionId::new();
+                    let bp = db.get_buffer_pool();
+                    let name = format!("Alice_{}", tid.get_tid());
+                    for i in 0..3 {
+                        bp.insert_tuple(
+                            tid,
+                            table_id,
+                            tuple::Tuple::new(
+                                vec![
+                                    fields::FieldVal::IntField(fields::IntField::new(i)),
+                                    fields::FieldVal::StringField(fields::StringField::new(
+                                        name.clone(),
+                                        7,
+                                    )),
+                                ],
+                                &td,
+                            ),
+                        );
+                    }
+                    bp.commit_transaction(tid);
+                });
+                if res.is_err() {
+                    print!("thread {:?} aborted\n", thread::current().id());
+                    thread::sleep(std::time::Duration::from_millis(500));
+                } else {
+                    print!("thread {:?} committed\n", thread::current().id());
+                    break;
                 }
-                bp.commit_transaction(tid);
             })
         })
         .collect();
 
     for handle in handles {
-        let res = handle.join();
-        if res.is_err() {
-            print!("Transaction aborted\n");
-        }
+        handle.join().unwrap();
     }
 
     // 6. Print out the tuples in the employee table

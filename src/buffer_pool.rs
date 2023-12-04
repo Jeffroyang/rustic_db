@@ -66,6 +66,7 @@ impl BufferPool {
                     let table = catalog.get_table_from_id(pid.get_table_id()).unwrap();
                     table.write_page(&page);
                     page.mark_dirty(false, tid);
+                    page.set_before_image();
                 }
             }
         }

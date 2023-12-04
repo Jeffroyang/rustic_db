@@ -115,6 +115,15 @@ impl HeapFile {
             tid,
         }
     }
+
+    // Retrieves an iterator over the pages in this file
+    pub fn iter_mut(&self, tid: TransactionId) -> HeapFileIteratorMut {
+        HeapFileIteratorMut {
+            heap_file: self,
+            current_page_index: 0,
+            tid,
+        }
+    }
 }
 
 pub struct HeapFileIterator<'a> {
@@ -124,6 +133,29 @@ pub struct HeapFileIterator<'a> {
 }
 
 impl<'a> Iterator for HeapFileIterator<'a> {
+    type Item = Arc<RwLock<HeapPage>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if (self.current_page_index as usize) < self.heap_file.num_pages() {
+            let pid = HeapPageId::new(self.heap_file.get_id(), self.current_page_index);
+            let db = database::get_global_db();
+            let bp = db.get_buffer_pool();
+            let page = bp.get_page(self.tid, pid, Permission::Read).unwrap();
+            self.current_page_index += 1;
+            Some(page)
+        } else {
+            None
+        }
+    }
+}
+
+pub struct HeapFileIteratorMut<'a> {
+    heap_file: &'a HeapFile,
+    current_page_index: usize,
+    tid: TransactionId,
+}
+
+impl<'a> Iterator for HeapFileIteratorMut<'a> {
     type Item = Arc<RwLock<HeapPage>>;
 
     fn next(&mut self) -> Option<Self::Item> {
