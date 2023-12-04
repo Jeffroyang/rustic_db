@@ -9,6 +9,7 @@ mod transaction;
 mod tuple;
 mod types;
 
+use std::thread;
 fn main() {
     let db = database::get_global_db();
 
@@ -28,32 +29,63 @@ fn main() {
     // 4. Retrieve the tuple descriptor for the employee table
     let td = table.get_tuple_desc().clone();
 
+    // 5. Insert 3 tuples into the employee table in 3 separate threads
+    // threads panic if aborted by WAIT-DIE protocol
     print!("table id: {}\n", table_id);
     print!("table name: {:?}\n", td.get_field_name(0));
+    let handles: Vec<_> = (0..3)
+        .map(|_| {
+            let db = database::get_global_db();
+            let table = db.get_catalog().get_table_from_id(table_id).unwrap();
+            let td = table.get_tuple_desc().clone();
+            thread::spawn(move || {
+                let tid = transaction::TransactionId::new();
+                let bp = db.get_buffer_pool();
+                let name = format!("Alice_{}", tid.get_tid());
+                for i in 0..3 {
+                    bp.insert_tuple(
+                        tid,
+                        table_id,
+                        tuple::Tuple::new(
+                            vec![
+                                fields::FieldVal::IntField(fields::IntField::new(i)),
+                                fields::FieldVal::StringField(fields::StringField::new(
+                                    name.clone(),
+                                    7,
+                                )),
+                            ],
+                            &td,
+                        ),
+                    );
+                }
+                bp.commit_transaction(tid);
+            })
+        })
+        .collect();
 
-    // 5. Insert 1000 tuples into the employee table
-    let tid = transaction::TransactionId::new();
-    let bp = db.get_buffer_pool();
-    for i in 0..1000 {
-        bp.insert_tuple(
-            tid,
-            table_id,
-            tuple::Tuple::new(
-                vec![
-                    fields::FieldVal::IntField(fields::IntField::new(i)),
-                    // insert random string
-                    fields::FieldVal::StringField(fields::StringField::new("Alice".to_string(), 5)),
-                ],
-                &td,
-            ),
-        );
+    for handle in handles {
+        let res = handle.join();
+        if res.is_err() {
+            print!("Transaction aborted\n");
+        }
     }
 
     // 6. Print out the tuples in the employee table
+    let mut tuple_count = 0;
+    let mut page_count = 0;
+    let tid = transaction::TransactionId::new();
     let table = catalog.get_table_from_id(table_id).unwrap();
     for page in table.iter(tid) {
+        let page = page.read().unwrap();
+        page_count += 1;
         for tuple in page.iter() {
             print!("tuple: {:?}\n", tuple);
+            tuple_count += 1;
         }
     }
+    let bp = db.get_buffer_pool();
+    bp.commit_transaction(tid);
+
+    print!("page count: {}\n", page_count);
+    print!("tuple count: {}\n", tuple_count);
 }

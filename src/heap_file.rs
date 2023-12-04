@@ -6,7 +6,7 @@ use crate::tuple::{Tuple, TupleDesc};
 
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom, Write};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex, RwLock};
 use uuid::Uuid;
 
 // Representation of a table stored in a file on disk
@@ -36,13 +36,23 @@ impl HeapFile {
     }
 
     // Retrieves the page with the specified pid from disk
-    pub fn read_page(&self, pid: HeapPageId) -> HeapPage {
+    pub fn read_page(&self, pid: &HeapPageId) -> HeapPage {
         let mut data = vec![0; PAGE_SIZE];
         let mut file = self.file.lock().unwrap();
-        file.seek(SeekFrom::Start((pid.get_page_number() * PAGE_SIZE) as u64))
+        let mut num_pages =
+            (file.metadata().unwrap().len() as f64 / PAGE_SIZE as f64).ceil() as usize;
+        let page_no = pid.get_page_number();
+        while num_pages <= page_no {
+            file.seek(SeekFrom::Start((num_pages * PAGE_SIZE) as u64))
+                .unwrap();
+            file.write_all(&data).unwrap();
+            num_pages += 1;
+        }
+
+        file.seek(SeekFrom::Start((page_no * PAGE_SIZE) as u64))
             .unwrap();
         file.read(&mut data).unwrap();
-        HeapPage::new(pid, data, self.td.clone())
+        HeapPage::new(pid.clone(), data, self.td.clone())
     }
 
     // Writes the specified page to disk
@@ -63,29 +73,29 @@ impl HeapFile {
 
     // Adds the specified tuple to the file
     pub fn add_tuple(&self, tid: TransactionId, tuple: Tuple) {
-        let num_pages = self.num_pages();
         let table_id = self.get_id();
         let db = database::get_global_db();
         let bp = db.get_buffer_pool();
-        for i in 0..num_pages {
-            let pid = HeapPageId::new(table_id, i);
-            let page = bp.get_page(tid, pid, Permission::Write).unwrap();
-            let mut page_writer = page.write().unwrap();
-            if page_writer.get_num_empty_slots() > 0 {
-                page_writer.add_tuple(tuple);
-                // TODO: only write to when page is evicted from buffer pool
-                self.write_page(&*page_writer);
+        let mut page_no = 0;
+
+        // find the first page with an empty slot
+        loop {
+            let pid = HeapPageId::new(table_id, page_no);
+            let page = bp.get_page(tid, pid, Permission::Read).unwrap();
+            let page_read = page.read().unwrap();
+            if page_read.get_num_empty_slots() > 0 {
+                drop(page_read);
+                let page = bp.get_page(tid, pid, Permission::Write).unwrap();
+                let mut page_writer = page.write().unwrap();
+                page_writer.add_tuple(tuple).unwrap();
+                page_writer.mark_dirty(true, tid);
                 return;
             }
+            page_no += 1;
         }
-        // no pages had space, so we need to create a new page
-        let pid = HeapPageId::new(table_id, num_pages);
-        let mut page = HeapPage::new(pid, vec![0; PAGE_SIZE], self.td.clone());
-        page.add_tuple(tuple);
-        self.write_page(&page);
     }
 
-    // Deletes the specified tuple from the file
+    // TODO: Deletes the specified tuple from the file
     pub fn delete_tuple(&self, tid: TransactionId, tuple: Tuple) {
         let db = database::get_global_db();
         let bp = db.get_buffer_pool();
@@ -93,7 +103,8 @@ impl HeapFile {
         let pid = rid.get_page_id();
         let page = bp.get_page(tid, pid, Permission::Write).unwrap();
         let mut page_writer = page.write().unwrap();
-        page_writer.delete_tuple(tuple);
+        page_writer.delete_tuple(tuple).unwrap();
+        page_writer.mark_dirty(true, tid);
     }
 
     // Retrieves an iterator over the pages in this file
@@ -113,7 +124,7 @@ pub struct HeapFileIterator<'a> {
 }
 
 impl<'a> Iterator for HeapFileIterator<'a> {
-    type Item = HeapPage;
+    type Item = Arc<RwLock<HeapPage>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if (self.current_page_index as usize) < self.heap_file.num_pages() {
@@ -121,9 +132,8 @@ impl<'a> Iterator for HeapFileIterator<'a> {
             let db = database::get_global_db();
             let bp = db.get_buffer_pool();
             let page = bp.get_page(self.tid, pid, Permission::Write).unwrap();
-            let page = page.read().unwrap();
             self.current_page_index += 1;
-            Some(page.clone())
+            Some(page)
         } else {
             None
         }
