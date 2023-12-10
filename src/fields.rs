@@ -9,7 +9,7 @@ pub enum FieldVal {
 
 impl FieldVal {
     // Extracts the inner IntField
-    fn into_int(self) -> Option<IntField> {
+    pub fn into_int(self) -> Option<IntField> {
         match self {
             FieldVal::IntField(int_field) => Some(int_field),
             _ => None,
@@ -41,6 +41,9 @@ pub struct IntField {
 impl IntField {
     pub fn new(value: i32) -> Self {
         IntField { value }
+    }
+    pub fn get_value(&self) -> i32 {
+        self.value
     }
 }
 
