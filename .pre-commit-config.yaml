@@ -3,3 +3,6 @@ repos:
     rev: master
     hooks:
       - id: fmt
+      - id: cargo-check
+      - id: clippy
+        args: ["--", "-A", "dead_code"]

@@ -1,4 +1,4 @@
-use crate::fields::{Field, FieldVal, IntField, StringField};
+use crate::fields::{Field, FieldVal};
 use crate::heap_page::HeapPageId;
 use crate::types::Type;
 
@@ -133,7 +133,7 @@ impl Tuple {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fields::IntField;
+    use crate::fields::{IntField, StringField};
     use crate::types::Type;
 
     #[test]
