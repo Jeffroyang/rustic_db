@@ -8,6 +8,8 @@ mod lock_manager;
 mod transaction;
 mod tuple;
 mod types;
+mod view;
+mod table;
 
 use std::thread;
 fn main() {
@@ -94,4 +96,70 @@ fn main() {
 
     print!("page count: {}\n", page_count);
     print!("tuple count: {}\n", tuple_count);
+
+    // my stuff trying to create user friendly tables
+    print!("my stuff\n\n\n");
+
+    let my_table = table::Table::new("employess".to_string(), "schema.txt".to_string());
+    
+    my_table.insert_tuple(tuple::Tuple::new(
+        vec![
+            fields::FieldVal::IntField(fields::IntField::new(1)),
+            fields::FieldVal::StringField(fields::StringField::new(
+                "Alice".to_string(),
+                7,
+            )),
+        ],
+        &td,
+    ));
+
+    my_table.print();
+
+    
+}
+
+#[test]
+fn test_table() {
+    let db = database::get_global_db();
+
+    // 1. Load the schemas and tables from the schemas.txt file
+    let mut schema_file_path = std::env::current_dir().unwrap();
+    schema_file_path.push("schemas.txt");
+    db.get_catalog()
+        .load_schema(schema_file_path.to_str().unwrap());
+
+    // now do the table stuff
+    
+
+    let my_table = table::Table::new("test".to_string(), "schema.txt".to_string());
+
+    my_table.insert_tuple(tuple::Tuple::new(
+        vec![
+            fields::FieldVal::IntField(fields::IntField::new(1)),
+            fields::FieldVal::StringField(fields::StringField::new(
+                "Alice".to_string(),
+                7,
+            )),
+        ],
+        &my_table.get_tuple_desc().clone(),
+    ));
+
+    my_table.print();
+
+    let scan = my_table.scan(1);
+    // print!("scan: {:?}\n", scan);
+
+    my_table.insert_tuple(tuple::Tuple::new(
+        vec![
+            fields::FieldVal::IntField(fields::IntField::new(2)),
+            fields::FieldVal::StringField(fields::StringField::new(
+                "Bob".to_string(),
+                7,
+            )),
+        ],
+        &my_table.get_tuple_desc().clone(),
+    ));
+    
+    let scan2 = my_table.scan(2);
+    // print!("scan2: {:?}\n", scan2);
 }
