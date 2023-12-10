@@ -48,7 +48,7 @@ impl BufferPool {
         let table = catalog.get_table_from_id(pid.get_table_id()).unwrap();
         let page = table.read_page(&pid);
         let mut id_to_page = self.id_to_page.write().unwrap();
-        id_to_page.insert(pid.clone(), Arc::new(RwLock::new(page)));
+        id_to_page.insert(pid, Arc::new(RwLock::new(page)));
         Some(Arc::clone(id_to_page.get(&pid).unwrap()))
     }
 

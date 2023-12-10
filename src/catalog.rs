@@ -42,28 +42,19 @@ impl Catalog {
     // Retrieves the table with the specified name
     pub fn get_table_from_name(&self, name: &str) -> Option<Arc<HeapFile>> {
         let tables = self.tables.read().unwrap();
-        match tables.get(name) {
-            Some(t) => Some(Arc::clone(t)),
-            None => None,
-        }
+        tables.get(name).map(Arc::clone)
     }
 
     // Retrieves the table with the specified id
     pub fn get_table_from_id(&self, id: usize) -> Option<Arc<HeapFile>> {
         let table_ids = self.table_ids.read().unwrap();
-        match table_ids.get(&id) {
-            Some(t) => Some(Arc::clone(t)),
-            None => None,
-        }
+        table_ids.get(&id).map(Arc::clone)
     }
 
     // Retrieves the tuple descriptor for the specified table
     pub fn get_tuple_desc(&self, table_id: usize) -> Option<TupleDesc> {
         let table = self.get_table_from_id(table_id);
-        match table {
-            Some(t) => Some(t.get_tuple_desc().clone()),
-            None => None,
-        }
+        table.map(|t| t.get_tuple_desc().clone())
     }
 
     // Loads the schema from a text file
@@ -73,7 +64,7 @@ impl Catalog {
         for line in reader.lines() {
             let line = line.unwrap();
             let split_parens: Vec<&str> = line.split('(').collect();
-            let table_name = split_parens[0].to_string().replace(" ", "");
+            let table_name = split_parens[0].to_string().replace(' ', "");
             let file = OpenOptions::new()
                 .create(true)
                 .read(true)
@@ -85,9 +76,9 @@ impl Catalog {
             let mut field_names = vec![];
             for field in fields.iter() {
                 let field: Vec<&str> = field.split(':').collect();
-                let field_name = field[0].to_string().replace(" ", "");
-                let field_type = field[1].to_string().replace(" ", "");
-                let field_type = field_type.replace(")", "");
+                let field_name = field[0].to_string().replace(' ', "");
+                let field_type = field[1].to_string().replace(' ', "");
+                let field_type = field_type.replace(')', "");
                 let field_type = match field_type.as_str() {
                     "Int" => IntType,
                     "String" => StringType,
