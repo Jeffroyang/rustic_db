@@ -14,7 +14,7 @@ use crate::database; // Import the `database` module
 //  a: Table = … create(name, schema)
 // then can just call a.insert(tuple)
 // or a.insert(vec![tuple1, tuple2, tuple3])
-
+    
 // insertOne((1, “hello”, ...))
 // use traits 
 

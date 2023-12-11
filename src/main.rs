@@ -33,8 +33,8 @@ fn main() {
 
     // 5. Insert 3 tuples into the employee table in 3 separate threads
     // threads panic if aborted by WAIT-DIE protocol
-    print!("table id: {}\n", table_id);
-    print!("table name: {:?}\n", td.get_field_name(0));
+    println!("table id: {}", table_id);
+    println!("table name: {:?}", td.get_field_name(0));
     let handles: Vec<_> = (0..3)
         .map(|_| {
             let db = database::get_global_db();
@@ -64,10 +64,10 @@ fn main() {
                     bp.commit_transaction(tid);
                 });
                 if res.is_err() {
-                    print!("thread {:?} aborted\n", thread::current().id());
+                    println!("thread {:?} aborted", thread::current().id());
                     thread::sleep(std::time::Duration::from_millis(500));
                 } else {
-                    print!("thread {:?} committed\n", thread::current().id());
+                    println!("thread {:?} committed", thread::current().id());
                     break;
                 }
             })
@@ -87,7 +87,7 @@ fn main() {
         let page = page.read().unwrap();
         page_count += 1;
         for tuple in page.iter() {
-            print!("tuple: {:?}\n", tuple);
+            println!("tuple: {:?}", tuple);
             tuple_count += 1;
         }
     }

@@ -47,42 +47,40 @@ impl LockManager {
         loop {
             let mut page_to_locks = self.page_to_locks.write().unwrap();
             let mut transaction_to_locks = self.transaction_to_locks.write().unwrap();
-            match page_to_locks.get(&pid) {
-                Some(locks) => {
-                    // upgrade the lock if the transaction already has a lock on the page
-                    if locks.len() == 1 && locks.iter().next().unwrap().tid == tid {
-                        if exclusive {
-                            self.upgrade_lock(
-                                tid,
-                                pid,
-                                page_to_locks.borrow_mut(),
-                                transaction_to_locks.borrow_mut(),
-                            );
-                        }
-                        return;
-                    }
-                    // conflict if there are others locks when we want an exclusive lock
-                    let mut conflict = exclusive && locks.len() > 0;
-                    // or if there is an exclusive lock and we want any lock
-                    conflict = conflict || locks.iter().any(|lock| lock.exclusive);
 
-                    if conflict {
-                        let abort = locks.iter().any(|lock| lock.tid < tid);
-                        drop(page_to_locks);
-                        drop(transaction_to_locks);
-                        if abort {
-                            // abort the transaction
-                            let db = database::get_global_db();
-                            let bp = db.get_buffer_pool();
-                            bp.abort_transaction(tid);
-                            panic!("Transaction {:?} aborted", tid);
-                        }
-                        // wait for the lock to be released
-                        thread::sleep(std::time::Duration::from_millis(500));
-                        continue;
+            if let Some(locks) = page_to_locks.get(&pid) {
+                // upgrade the lock if the transaction already has a lock on the page
+                if locks.len() == 1 && locks.iter().next().unwrap().tid == tid {
+                    if exclusive {
+                        self.upgrade_lock(
+                            tid,
+                            pid,
+                            page_to_locks.borrow_mut(),
+                            transaction_to_locks.borrow_mut(),
+                        );
                     }
+                    return;
                 }
-                None => {}
+                // conflict if there are others locks when we want an exclusive lock
+                let mut conflict = exclusive && !locks.is_empty();
+                // or if there is an exclusive lock and we want any lock
+                conflict = conflict || locks.iter().any(|lock| lock.exclusive);
+
+                if conflict {
+                    let abort = locks.iter().any(|lock| lock.tid < tid);
+                    drop(page_to_locks);
+                    drop(transaction_to_locks);
+                    if abort {
+                        // abort the transaction
+                        let db = database::get_global_db();
+                        let bp = db.get_buffer_pool();
+                        bp.abort_transaction(tid);
+                        panic!("Transaction {:?} aborted", tid);
+                    }
+                    // wait for the lock to be released
+                    thread::sleep(std::time::Duration::from_millis(500));
+                    continue;
+                }
             }
             // add the lock to the page and transaction
             let page_locks = page_to_locks.entry(pid).or_insert(HashSet::new());
@@ -122,9 +120,9 @@ impl LockManager {
             exclusive: true,
         };
         page_locks.remove(&old_lock);
-        page_locks.insert(new_lock.clone());
+        page_locks.insert(new_lock);
         transaction_locks.remove(&old_lock);
-        transaction_locks.insert(new_lock.clone());
+        transaction_locks.insert(new_lock);
     }
 
     // Releases all locks associated with the specified transaction
@@ -135,7 +133,7 @@ impl LockManager {
         for lock in held_locks.iter() {
             let page_locks = page_to_locks.get_mut(&lock.pid).unwrap();
             page_locks.remove(lock);
-            if page_locks.len() == 0 {
+            if page_locks.is_empty() {
                 page_to_locks.remove(&lock.pid);
             }
         }

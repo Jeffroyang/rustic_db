@@ -15,9 +15,9 @@ impl FieldVal {
             _ => None,
         }
     }
-
+    // I made this public - adam
     // Extracts the inner StringField
-    fn into_string(self) -> Option<StringField> {
+    pub fn into_string(self) -> Option<StringField> {
         match self {
             FieldVal::StringField(string_field) => Some(string_field),
             _ => None,
@@ -65,6 +65,11 @@ pub struct StringField {
 impl StringField {
     pub fn new(value: String, len: u32) -> Self {
         StringField { value, len }
+    }
+
+    // - adam
+    pub fn get_value(&self) -> String {
+        self.value.clone()
     }
 }
 

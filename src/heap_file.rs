@@ -51,8 +51,8 @@ impl HeapFile {
 
         file.seek(SeekFrom::Start((page_no * PAGE_SIZE) as u64))
             .unwrap();
-        file.read(&mut data).unwrap();
-        HeapPage::new(pid.clone(), data, self.td.clone())
+        file.read_exact(&mut data).unwrap();
+        HeapPage::new(*pid, data, self.td.clone())
     }
 
     // Writes the specified page to disk
@@ -136,7 +136,7 @@ impl<'a> Iterator for HeapFileIterator<'a> {
     type Item = Arc<RwLock<HeapPage>>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if (self.current_page_index as usize) < self.heap_file.num_pages() {
+        if self.current_page_index < self.heap_file.num_pages() {
             let pid = HeapPageId::new(self.heap_file.get_id(), self.current_page_index);
             let db = database::get_global_db();
             let bp = db.get_buffer_pool();
@@ -159,7 +159,7 @@ impl<'a> Iterator for HeapFileIteratorMut<'a> {
     type Item = Arc<RwLock<HeapPage>>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if (self.current_page_index as usize) < self.heap_file.num_pages() {
+        if self.current_page_index < self.heap_file.num_pages() {
             let pid = HeapPageId::new(self.heap_file.get_id(), self.current_page_index);
             let db = database::get_global_db();
             let bp = db.get_buffer_pool();
