@@ -15,7 +15,6 @@ impl FieldVal {
             _ => None,
         }
     }
-    // I made this public - adam
     // Extracts the inner StringField
     pub fn into_string(self) -> Option<StringField> {
         match self {

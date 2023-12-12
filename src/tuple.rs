@@ -1,3 +1,5 @@
+use std::fmt::{Display, Formatter};
+
 use crate::fields::{Field, FieldVal};
 use crate::heap_page::HeapPageId;
 use crate::types::Type;
@@ -78,6 +80,28 @@ pub struct Tuple {
     rid: RecordId,
 }
 
+impl Display for Tuple {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut s = String::new();
+        for (i, field) in self.fields.iter().enumerate() {
+            match field {
+                FieldVal::IntField(int_field) => {
+                    s.push_str(&format!("{}: {}", self.td.fields[i], int_field.get_value()))
+                }
+                FieldVal::StringField(string_field) => s.push_str(&format!(
+                    "{}: {}",
+                    self.td.fields[i],
+                    string_field.get_value()
+                )),
+            }
+            if i != self.fields.len() - 1 {
+                s.push_str(", ");
+            }
+        }
+        write!(f, "{{{}}}", s)
+    }
+}
+
 impl Tuple {
     pub fn new(fields: Vec<FieldVal>, td: &TupleDesc) -> Self {
         Tuple {
@@ -132,8 +156,6 @@ impl Tuple {
     pub fn get_fields(&self) -> Vec<FieldVal> {
         self.fields.clone()
     }
-
-    
 }
 
 #[cfg(test)]
