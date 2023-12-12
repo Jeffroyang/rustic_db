@@ -8,6 +8,8 @@ mod lock_manager;
 mod transaction;
 mod tuple;
 mod types;
+mod view;
+mod table;
 
 use std::thread;
 fn main() {
@@ -92,6 +94,91 @@ fn main() {
     let bp = db.get_buffer_pool();
     bp.commit_transaction(tid);
 
-    println!("page count: {}", page_count);
-    println!("tuple count: {}", tuple_count);
+    print!("page count: {}\n", page_count);
+    print!("tuple count: {}\n", tuple_count);
+
+    // my stuff trying to create user friendly tables
+    print!("my stuff\n\n\n");
+
+    let my_table = table::Table::new("employess".to_string(), "schema.txt".to_string());
+    
+    my_table.insert_tuple(tuple::Tuple::new(
+        vec![
+            fields::FieldVal::IntField(fields::IntField::new(1)),
+            fields::FieldVal::StringField(fields::StringField::new(
+                "Alice".to_string(),
+                7,
+            )),
+        ],
+        &td,
+    ));
+
+    my_table.print();
+
+    
 }
+
+#[test]
+fn test_table() {
+    let db = database::get_global_db();
+
+    // 1. Load the schemas and tables from the schemas.txt file
+    let mut schema_file_path = std::env::current_dir().unwrap();
+    schema_file_path.push("schemas.txt");
+    db.get_catalog()
+        .load_schema(schema_file_path.to_str().unwrap());
+
+
+    let my_table = table::Table::new("products".to_string(), "schema.txt".to_string());
+
+    // Inserting a tuple into the table // 
+    // let tuple_to_insert = tuple::Tuple::new(
+    //     vec![
+    //         fields::FieldVal::IntField(fields::IntField::new(1)),
+    //         fields::FieldVal::StringField(fields::StringField::new(
+    //             "Alice".to_string(),
+    //             7,
+    //         )),
+    //     ],
+    //     &my_table.get_tuple_desc().clone(),
+    // );
+    // my_table.insert_tuple(tuple_to_insert.clone());
+
+    // performing a scan on the table
+    let scan = my_table.scan(20);
+    
+    let mut scan2 = my_table.scan(2);
+
+    // simple filtering, using a predicate
+    let pred = table::Predicate::GreaterThan(1);
+    let filter = scan2.table_filter("id", pred);
+    // performing a filter on the scan, on the field "id" with the predicate "GreaterThan(1)"
+
+    // Joins
+    // load up second table
+    let my_table2 = table::Table::new("test2".to_string(), "schema.txt".to_string());
+    // my_table2.insert_tuple(tuple::Tuple::new(
+    //     vec![
+    //         fields::FieldVal::IntField(fields::IntField::new(1)),
+    //         fields::FieldVal::StringField(fields::StringField::new(
+    //             "Alice".to_string(),
+    //             7,
+    //         )),
+    //     ],
+    //     &my_table2.get_tuple_desc().clone(),
+    // ));
+
+    // grab two scans, combine both scans into a join
+    let mut scan3 = my_table2.scan(2);
+    let mut scan4 = my_table.scan(2);
+    let join = scan3.join(&scan4, "title", "id");
+
+    // for tuple in join {
+    //     print!("tuple: {:?}\n", tuple);
+    // }
+
+    // projections
+    let mut scan5 = my_table.scan(2);
+    let proj = scan5.project(vec!["title".to_string()]);
+}
+

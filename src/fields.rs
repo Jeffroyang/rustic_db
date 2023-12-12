@@ -9,15 +9,15 @@ pub enum FieldVal {
 
 impl FieldVal {
     // Extracts the inner IntField
-    fn into_int(self) -> Option<IntField> {
+    pub fn into_int(self) -> Option<IntField> {
         match self {
             FieldVal::IntField(int_field) => Some(int_field),
             _ => None,
         }
     }
-
+    // I made this public - adam
     // Extracts the inner StringField
-    fn into_string(self) -> Option<StringField> {
+    pub fn into_string(self) -> Option<StringField> {
         match self {
             FieldVal::StringField(string_field) => Some(string_field),
             _ => None,
@@ -42,6 +42,9 @@ impl IntField {
     pub fn new(value: i32) -> Self {
         IntField { value }
     }
+    pub fn get_value(&self) -> i32 {
+        self.value
+    }
 }
 
 impl Field for IntField {
@@ -62,6 +65,11 @@ pub struct StringField {
 impl StringField {
     pub fn new(value: String, len: u32) -> Self {
         StringField { value, len }
+    }
+
+    // - adam
+    pub fn get_value(&self) -> String {
+        self.value.clone()
     }
 }
 

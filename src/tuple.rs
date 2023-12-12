@@ -128,6 +128,12 @@ impl Tuple {
         }
         Tuple::new(fields, td)
     }
+
+    pub fn get_fields(&self) -> Vec<FieldVal> {
+        self.fields.clone()
+    }
+
+    
 }
 
 #[cfg(test)]

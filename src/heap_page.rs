@@ -196,6 +196,15 @@ impl HeapPage {
             index: 0,
         }
     }
+
+    // by adam but idk if this is fine
+    pub fn get_tuple(&self, i: usize) -> &Tuple {
+        &self.tuples[i]
+    }
+
+    pub fn num_tuples(&self) -> usize {
+        self.num_slots
+    }
 }
 
 pub struct HeapPageIterator<'a> {
