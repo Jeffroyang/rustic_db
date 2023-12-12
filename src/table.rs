@@ -1,20 +1,17 @@
 use crate::database; // Import the `database` module or crate
 use crate::fields::FieldVal;
-use crate::heap_file::{self, HeapFile};
-use crate::heap_page; // Import the `heap_page` module or crate
-use crate::heap_page::HeapPageId;
-use crate::transaction; // Import the `transaction` module or crate
+use crate::heap_file::HeapFile;
+use crate::transaction::TransactionId; // Import the `transaction` module or crate
 use crate::tuple; // Import the `tuple` module or crate
 use crate::tuple::Tuple;
 use crate::tuple::TupleDesc;
 use std::sync::Arc;
-use std::sync::RwLock;
 
 pub struct Table {
     name: String,
     heap_file: Arc<HeapFile>,
     table_id: usize,
-    tuple_desc: tuple::TupleDesc,
+    tuple_desc: TupleDesc,
 }
 
 impl Table {
@@ -37,36 +34,42 @@ impl Table {
         }
     }
 
-    pub fn insert_tuple(&self, tuple: tuple::Tuple) {
+    pub fn insert_tuple(&self, tuple: Tuple) {
         let db = database::get_global_db();
-        let tid = transaction::TransactionId::new();
+        let tid = TransactionId::new();
+        self.heap_file.add_tuple(tid, tuple);
         let bp = db.get_buffer_pool();
-        bp.insert_tuple(tid, self.table_id, tuple);
         bp.commit_transaction(tid);
     }
 
-    pub fn get_tuple_desc(&self) -> &tuple::TupleDesc {
+    pub fn insert_many_tuples(&self, tuples: Vec<Tuple>) {
+        let db = database::get_global_db();
+        let tid = TransactionId::new();
+        for tuple in tuples {
+            self.heap_file.add_tuple(tid, tuple);
+        }
+        let bp = db.get_buffer_pool();
+        bp.commit_transaction(tid);
+    }
+
+    pub fn get_tuple_desc(&self) -> &TupleDesc {
         &self.tuple_desc
     }
 
     pub fn print(&self) {
         let db = database::get_global_db();
-        let mut tuple_count = 0;
-        let tid = transaction::TransactionId::new();
+        let tid = TransactionId::new();
         for page in self.heap_file.iter(tid) {
             let page = page.read().unwrap();
-            tuple_count += 1;
-            for tuple in page.iter() {
-                print!("tuple: {:?}\n", tuple);
-                tuple_count += 1;
+            for (i, tuple) in page.iter().enumerate() {
+                println!("{}: {}", i, tuple);
             }
         }
         let bp = db.get_buffer_pool();
         bp.commit_transaction(tid);
     }
 
-    pub fn scan(&self, count: usize) -> TableIterator {
-        let tid = transaction::TransactionId::new();
+    pub fn scan(&self, count: usize, tid: TransactionId) -> TableIterator {
         TableIterator::new(self, tid, count)
     }
 }
@@ -76,14 +79,14 @@ impl Table {
 pub struct TableIterator<'a> {
     table: &'a Table,
     current_page_index: usize,
-    tid: transaction::TransactionId,
+    tid: TransactionId,
     data: Vec<tuple::Tuple>, // like a view
     filters: Vec<(String, Predicate)>,
 }
 
 impl<'a> TableIterator<'a> {
     // make a new table iterator and fill its vector with count tuples -
-    fn new(table: &'a Table, tid: transaction::TransactionId, count: usize) -> Self {
+    fn new(table: &'a Table, tid: TransactionId, count: usize) -> Self {
         let mut data = Vec::new();
         let mut count = count;
         for page in table.heap_file.iter(tid) {
@@ -107,7 +110,6 @@ impl<'a> TableIterator<'a> {
 
     pub fn project(&self, fields: Vec<String>) -> TableIterator {
         let mut data = Vec::new();
-        let mut count = 0;
 
         // take the Tuple and make a new TupleDesc for it as well as a new Fields for it
         for tuple in self.data.iter() {
@@ -137,7 +139,6 @@ impl<'a> TableIterator<'a> {
             let new_tuple = Tuple::new(new_field_vals, &new_tuple_desc);
 
             data.push(new_tuple);
-            count += 1;
         }
         // make a new iterator with the new data
         TableIterator {
@@ -165,8 +166,7 @@ impl<'a> TableIterator<'a> {
         let mut data = Vec::new();
 
         for tuple in self.data.iter() {
-            print!("tuple: {:?}\n", tuple);
-            print!("tuple desc: {:?}\n", tuple.get_tuple_desc());
+            println!("{}", tuple);
             let target_col_left = tuple.get_tuple_desc().name_to_id(field_name_left).unwrap();
             for other_tuple in other.data.iter() {
                 let target_col_right = other_tuple
@@ -216,11 +216,11 @@ impl<'a> Iterator for TableIterator<'a> {
 
             // also apply any filters here - dumb but i think it would work
             for filter in self.filters.iter() {
-                print!("filtering: {:?}\n", filter.0);
                 if !tuple.filter(&filter.0, &filter.1) {
                     return self.next();
                 }
             }
+
             Some(tuple)
         } else {
             None
@@ -230,6 +230,7 @@ impl<'a> Iterator for TableIterator<'a> {
 
 pub enum Predicate {
     Equals(String),
+    EqualsInt(i32),
     GreaterThan(i32),
     LessThan(i32),
 }
@@ -262,15 +263,22 @@ impl Filterable for Tuple {
                             field.clone().into_int().unwrap().get_value()
                         );
                         print!("value: {:?}\n", value);
-                        if field.clone().into_int().unwrap().get_value() > *value {
-                            return true;
+                        if let FieldVal::IntField(int_field) = &field {
+                            return int_field.get_value() > *value;
                         } else {
                             return false;
                         }
                     }
                     Predicate::LessThan(value) => {
-                        if field.clone().into_int().unwrap().get_value() < *value {
-                            return true;
+                        if let FieldVal::IntField(int_field) = &field {
+                            return int_field.get_value() < *value;
+                        } else {
+                            return false;
+                        }
+                    }
+                    Predicate::EqualsInt(value) => {
+                        if let FieldVal::IntField(int_field) = &field {
+                            return int_field.get_value() == *value;
                         } else {
                             return false;
                         }

@@ -87,7 +87,7 @@ fn main() {
         let page = page.read().unwrap();
         page_count += 1;
         for tuple in page.iter() {
-            println!("tuple: {:?}", tuple);
+            println!("tuple: {}", tuple);
             tuple_count += 1;
         }
     }
@@ -125,53 +125,90 @@ fn test_table() {
 
     let my_table = table::Table::new("products".to_string(), "schema.txt".to_string());
 
-    // Inserting a tuple into the table //
-    // let tuple_to_insert = tuple::Tuple::new(
-    //     vec![
-    //         fields::FieldVal::IntField(fields::IntField::new(1)),
-    //         fields::FieldVal::StringField(fields::StringField::new(
-    //             "Alice".to_string(),
-    //             7,
-    //         )),
-    //     ],
-    //     &my_table.get_tuple_desc().clone(),
-    // );
-    // my_table.insert_tuple(tuple_to_insert.clone());
+    // We can inserting tuples one at a time
+    let tuple_to_insert = tuple::Tuple::new(
+        vec![
+            fields::FieldVal::IntField(fields::IntField::new(0)),
+            fields::FieldVal::StringField(fields::StringField::new("Alice_0".to_string(), 7)),
+        ],
+        &my_table.get_tuple_desc().clone(),
+    );
+    my_table.insert_tuple(tuple_to_insert.clone());
 
-    // performing a scan on the table
-    let scan = my_table.scan(20);
+    // Insert multiple tuples into the table
+    let tuple_collection = (1..20)
+        .map(|i| {
+            let name = format!("Alice_{}", i);
+            let length = name.len();
+            tuple::Tuple::new(
+                vec![
+                    fields::FieldVal::IntField(fields::IntField::new(i)),
+                    fields::FieldVal::StringField(fields::StringField::new(name, length as u32)),
+                ],
+                &my_table.get_tuple_desc().clone(),
+            )
+        })
+        .collect();
+    my_table.insert_many_tuples(tuple_collection);
 
-    let mut scan2 = my_table.scan(2);
+    // We can then scan the table to see all of our results
+    println!("-------------");
+    println!("----SCAN-----");
+    println!("-------------");
+    let tid = transaction::TransactionId::new();
+    let scan = my_table.scan(20, tid);
+    for tuple in scan.into_iter() {
+        println!("{}", tuple);
+    }
+
+    let mut scan2 = my_table.scan(5, tid);
 
     // simple filtering, using a predicate
+    println!("---------------");
+    println!("----FILTERS----");
+    println!("---------------");
     let pred = table::Predicate::GreaterThan(1);
-    let filter = scan2.table_filter("id", pred);
+    scan2.table_filter("id", pred);
+    for tuple in scan2.into_iter() {
+        println!("{}", tuple);
+    }
     // performing a filter on the scan, on the field "id" with the predicate "GreaterThan(1)"
 
-    // Joins
+    println!("-------------");
+    println!("----JOINS----");
+    println!("-------------");
     // load up second table
     let my_table2 = table::Table::new("test2".to_string(), "schema.txt".to_string());
-    // my_table2.insert_tuple(tuple::Tuple::new(
-    //     vec![
-    //         fields::FieldVal::IntField(fields::IntField::new(1)),
-    //         fields::FieldVal::StringField(fields::StringField::new(
-    //             "Alice".to_string(),
-    //             7,
-    //         )),
-    //     ],
-    //     &my_table2.get_tuple_desc().clone(),
-    // ));
+    let tuple_collection2 = (5..10)
+        .map(|i| {
+            let name = format!("Alice_{}", i);
+            let length = name.len();
+            tuple::Tuple::new(
+                vec![
+                    fields::FieldVal::IntField(fields::IntField::new(i)),
+                    fields::FieldVal::StringField(fields::StringField::new(name, length as u32)),
+                ],
+                &my_table.get_tuple_desc().clone(),
+            )
+        })
+        .collect();
+    my_table2.insert_many_tuples(tuple_collection2);
 
     // grab two scans, combine both scans into a join
-    let mut scan3 = my_table2.scan(2);
-    let mut scan4 = my_table.scan(2);
+    let scan3 = my_table2.scan(5, tid);
+    let scan4 = my_table.scan(20, tid);
     let join = scan3.join(&scan4, "title", "id");
 
-    // for tuple in join {
-    //     print!("tuple: {:?}\n", tuple);
-    // }
+    for tuple in join {
+        println!("{}", tuple);
+    }
 
-    // projections
-    let mut scan5 = my_table.scan(2);
-    let proj = scan5.project(vec!["title".to_string()]);
+    println!("--------------");
+    println!("--PROJECTION--");
+    println!("--------------");
+    let scan5 = my_table.scan(2, tid);
+    let proj = scan5.project(vec!["id".to_string()]);
+    for tuple in proj {
+        println!("{}", tuple);
+    }
 }
