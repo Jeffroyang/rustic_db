@@ -14,3 +14,11 @@ A simple database management system inspired by [MIT Opencourseware](https://ocw
 - The heapfile module represents the underlying data for a data, and it communicates with the buffer pool in order to retrieve relevant pages. This provides a simple abstraction that allows us to easily query for pages.
 - The database and catalog modules provide global variables that we can access. The database consists of both buffer pool and catalog fields. Having access to the catalog is useful for communicating what tables are available. Having access to the buffer pool allows us to commit transactions and allow heap files to easily access the pages needed.
 
+
+##Operations:
+ - The Table struct represents a table with properties like name, heap_file, table_id, and tuple_desc. Operations include inserting, scanning, and printing tuples.
+ - The TableIterator struct serves as an iterator for table views, supporting projection, filtering, and joining.
+ - Predicates like Equals, EqualsInt, GreaterThan, and LessThan facilitate filtering, while the Filterable trait adds filtering functionality to tuples.
+ - The code offers a means for a user to communicate with the actual database, demonstrating table creation, tuple insertion, scanning, and a join operation.
+
+To use these functions, create a new table instance with Table::new(name, schema), specifying the table name and the path to its schema. Insert single or multiple tuples using insert_tuple and insert_many_tuples. Retrieve the table's tuple descriptor with get_tuple_desc and its ID with get_id. Printing the table's content is facilitated by the print function. Scanning the table can be done using the scan method, and further operations like projection, filtering, and joining are available through the TableIterator struct. Examples demonstrate the usage of these functionalities, such as inserting tuples, scanning, applying filters, and performing joins. The provided tests illustrate scenarios like asynchronous scans, transaction handling, and recovery from aborted transactions. Adapt and integrate this module into your project as needed.
