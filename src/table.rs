@@ -19,10 +19,7 @@ pub struct Table {
 
 impl Table {
 
-    // let mut schema_file_path = std::env::current_dir().unwrap();
-    // schema_file_path.push("schemas.txt");
-    // db.get_catalog()
-    //     .load_schema(schema_file_path.to_str().unwrap());
+
     pub fn new(name: String, schema: String) -> Self {
         let db = database::get_global_db();
         let catalog = db.get_catalog();
@@ -68,19 +65,7 @@ impl Table {
         }
         let bp = db.get_buffer_pool();
         bp.commit_transaction(tid);
-    }
-
-    // scan(5)
-// a.scan(10)
-// project(select)
-
-// { id: int,  name: String }
-// a.scan().project( { “name” })
-// a.project( { “name” })
-
-    // produce an iterator that will iterate for count tuples, starting at the beginning of the table
-    // unless given a fn, it will pretty much just return the tuple
-    
+    }    
 
     pub fn scan(&self, count: usize) -> TableIterator {
         let tid = transaction::TransactionId::new();
@@ -91,19 +76,17 @@ impl Table {
 }
 
 
-// ok so im just gonna make the iterator iterate on a view generated from the heapfile
-
+// iterator iterates on a view generated from the heapfile -> quick fix to get the view working
+// and avoid iterating on the heapfile directly, which I cant get working properly
 pub struct TableIterator<'a> {
     table: &'a Table,
     current_page_index: usize,
     tid: transaction::TransactionId,
-    data: Vec<tuple::Tuple>, // like a view ig
+    data: Vec<tuple::Tuple>, // like a view 
     filters: Vec<(String, Predicate)>,
 }
 
 impl<'a> TableIterator<'a> {
-
-
     // make a new table iterator and fill its vector with count tuples - 
     fn new(table: &'a Table, tid: transaction::TransactionId, count: usize) -> Self {
         let mut data = Vec::new();
@@ -176,6 +159,45 @@ impl<'a> TableIterator<'a> {
     pub fn table_filter(&mut self, field_name: &str, predicate: Predicate) {
         self.filters.push((field_name.to_string(), predicate));
     }
+
+
+    pub fn join(&self, other: &TableIterator, field_name_left: &str, field_name_right: &str) -> TableIterator {
+        // making a new 'view'/ TableIterator using nxn from both tables
+        // field_name is the field/col that we are joining on
+        // similar to JOIN t1 ON t1.id = t2.id where id is field_name
+        let mut data = Vec::new();
+
+        
+        for tuple in self.data.iter() {
+            print!("tuple: {:?}\n", tuple);
+            print!("tuple desc: {:?}\n", tuple.get_tuple_desc());
+            let target_col_left = tuple.get_tuple_desc().name_to_id(field_name_left).unwrap();
+            for other_tuple in other.data.iter() {
+                let target_col_right = other_tuple.get_tuple_desc().name_to_id(field_name_right).unwrap();
+                // check if the tuples match
+                // if they do, add them to the new view
+                if tuple.get_field(target_col_left).unwrap() == other_tuple.get_field(target_col_right).unwrap() {
+                    // add the tuple to the new view
+
+                    // need to combine the two tuples
+
+                    // making a new TupleDesc
+                    let ctd: TupleDesc = TupleDesc::combine(tuple.get_tuple_desc(), other_tuple.get_tuple_desc());
+                    let combined_fields = tuple.get_fields().iter().chain(other_tuple.get_fields().iter()).cloned().collect::<Vec<_>>();
+                    let new_tuple = Tuple::new(combined_fields, &ctd);
+                    data.push(new_tuple);
+                }
+            }
+        }
+        TableIterator {
+            table: self.table,
+            current_page_index: 0,
+            tid: self.tid,
+            data,
+            filters: Vec::new(),
+        }
+
+    }
 }
 
 impl<'a> Iterator for TableIterator<'a> {
@@ -206,7 +228,6 @@ pub enum Predicate {
     Equals(String),
     GreaterThan(i32),
     LessThan(i32),
-    // good enough for now
 }
 
 // trait to do filtering for filter()
@@ -214,7 +235,7 @@ pub trait Filterable {
     fn filter(&self, field_name: &str, predicate: &Predicate) -> bool;
 }
 
-// silly implementation of filter
+// quick implementation of filter
 impl Filterable for Tuple {
     fn filter(&self, field_name: &str, predicate: &Predicate) -> bool {
 
@@ -254,10 +275,3 @@ impl Filterable for Tuple {
         false
     }
 }
-
-// impl<'a> Filterable for TableIterator<'a> {
-//     fn filter(&self, field_name: &str, predicate: &Predicate) -> bool {
-//         // Assuming your TableIterator contains a Tuple
-//         self.next().map_or(false, |tuple| tuple.filter(field_name, predicate))
-//     }
-// }
