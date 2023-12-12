@@ -15,7 +15,7 @@ A simple database management system inspired by [MIT Opencourseware](https://ocw
 - The database and catalog modules provide global variables that we can access. The database consists of both buffer pool and catalog fields. Having access to the catalog is useful for communicating what tables are available. Having access to the buffer pool allows us to commit transactions and allow heap files to easily access the pages needed.
 
 
-##Operations:
+## Operations:
  - The Table struct represents a table with properties like name, heap_file, table_id, and tuple_desc. Operations include inserting, scanning, and printing tuples.
  - The TableIterator struct serves as an iterator for table views, supporting projection, filtering, and joining.
  - Predicates like Equals, EqualsInt, GreaterThan, and LessThan facilitate filtering, while the Filterable trait adds filtering functionality to tuples.
