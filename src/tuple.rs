@@ -132,8 +132,6 @@ impl Tuple {
     pub fn get_fields(&self) -> Vec<FieldVal> {
         self.fields.clone()
     }
-
-    
 }
 
 #[cfg(test)]

@@ -11,8 +11,6 @@ pub struct Catalog {
     tables: RwLock<HashMap<String, Arc<HeapFile>>>,
     // maps table id to table
     table_ids: RwLock<HashMap<usize, Arc<HeapFile>>>,
-    // maps table id to primary keys
-    primary_keys: RwLock<HashMap<usize, String>>,
 }
 
 impl Catalog {
@@ -20,23 +18,15 @@ impl Catalog {
         Catalog {
             tables: RwLock::new(HashMap::new()),
             table_ids: RwLock::new(HashMap::new()),
-            primary_keys: RwLock::new(HashMap::new()),
         }
     }
 
-    pub fn add_table_with_primary_key(&self, file: HeapFile, name: String, key: String) {
+    pub fn add_table(&self, file: HeapFile, name: String) {
         let mut tables = self.tables.write().unwrap();
         let file_id = file.get_id();
         tables.insert(name.clone(), Arc::new(file));
         let mut table_ids = self.table_ids.write().unwrap();
         table_ids.insert(file_id, Arc::clone(tables.get(&name).unwrap()));
-        let mut primary_keys = self.primary_keys.write().unwrap();
-        primary_keys.insert(file_id, key);
-    }
-
-    // Adds a table to the catalog
-    pub fn add_table(&self, file: HeapFile, name: String) {
-        self.add_table_with_primary_key(file, name, "".to_string())
     }
 
     // Retrieves the table with the specified name

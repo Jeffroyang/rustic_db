@@ -5,11 +5,11 @@ mod fields;
 mod heap_file;
 mod heap_page;
 mod lock_manager;
+mod table;
 mod transaction;
 mod tuple;
 mod types;
 mod view;
-mod table;
 
 use std::thread;
 fn main() {
@@ -101,21 +101,16 @@ fn main() {
     print!("my stuff\n\n\n");
 
     let my_table = table::Table::new("employess".to_string(), "schema.txt".to_string());
-    
+
     my_table.insert_tuple(tuple::Tuple::new(
         vec![
             fields::FieldVal::IntField(fields::IntField::new(1)),
-            fields::FieldVal::StringField(fields::StringField::new(
-                "Alice".to_string(),
-                7,
-            )),
+            fields::FieldVal::StringField(fields::StringField::new("Alice".to_string(), 7)),
         ],
         &td,
     ));
 
     my_table.print();
-
-    
 }
 
 #[test]
@@ -128,10 +123,9 @@ fn test_table() {
     db.get_catalog()
         .load_schema(schema_file_path.to_str().unwrap());
 
-
     let my_table = table::Table::new("products".to_string(), "schema.txt".to_string());
 
-    // Inserting a tuple into the table // 
+    // Inserting a tuple into the table //
     // let tuple_to_insert = tuple::Tuple::new(
     //     vec![
     //         fields::FieldVal::IntField(fields::IntField::new(1)),
@@ -146,7 +140,7 @@ fn test_table() {
 
     // performing a scan on the table
     let scan = my_table.scan(20);
-    
+
     let mut scan2 = my_table.scan(2);
 
     // simple filtering, using a predicate
@@ -181,4 +175,3 @@ fn test_table() {
     let mut scan5 = my_table.scan(2);
     let proj = scan5.project(vec!["title".to_string()]);
 }
-
