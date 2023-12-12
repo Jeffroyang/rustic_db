@@ -34,26 +34,22 @@ impl Table {
         }
     }
 
-    pub fn insert_tuple(&self, tuple: Tuple) {
-        let db = database::get_global_db();
-        let tid = TransactionId::new();
+    pub fn insert_tuple(&self, tuple: Tuple, tid: TransactionId) {
         self.heap_file.add_tuple(tid, tuple);
-        let bp = db.get_buffer_pool();
-        bp.commit_transaction(tid);
     }
 
-    pub fn insert_many_tuples(&self, tuples: Vec<Tuple>) {
-        let db = database::get_global_db();
-        let tid = TransactionId::new();
+    pub fn insert_many_tuples(&self, tuples: Vec<Tuple>, tid: TransactionId) {
         for tuple in tuples {
             self.heap_file.add_tuple(tid, tuple);
         }
-        let bp = db.get_buffer_pool();
-        bp.commit_transaction(tid);
     }
 
     pub fn get_tuple_desc(&self) -> &TupleDesc {
         &self.tuple_desc
+    }
+
+    pub fn get_id(&self) -> usize {
+        self.table_id
     }
 
     pub fn print(&self) {
